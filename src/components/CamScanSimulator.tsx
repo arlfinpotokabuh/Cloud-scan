@@ -1547,10 +1547,10 @@ export default function CamScanSimulator({
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
               {(files || []).filter(f => ['jpg', 'jpeg', 'png', 'webp'].includes(f.name.split('.').pop()?.toLowerCase() || '')).length > 0 ? (
                 (files || []).filter(f => ['jpg', 'jpeg', 'png', 'webp'].includes(f.name.split('.').pop()?.toLowerCase() || '')).map(file => (
-                  <button 
+                  <div 
                     key={file.name}
                     onClick={() => handleImportFromCloud(file.name)}
-                    className="w-full bg-slate-900/60 p-3 rounded-xl border border-slate-900 flex items-center gap-3 hover:border-indigo-500/50 hover:bg-slate-900 transition-all text-left group"
+                    className="w-full bg-slate-900/60 p-3 rounded-xl border border-slate-900 flex items-center gap-3 hover:border-indigo-500/50 hover:bg-slate-900 transition-all text-left group cursor-pointer select-none"
                   >
                     <div className="w-10 h-10 bg-slate-800 rounded flex items-center justify-center overflow-hidden border border-slate-700">
                       <img src={`/api/open/${encodeURIComponent(file.name)}`} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
@@ -1589,7 +1589,7 @@ export default function CamScanSimulator({
                         <Trash2 size={12} />
                       </button>
                     </div>
-                  </button>
+                  </div>
                 ))
               ) : (
                 <div className="p-8 text-center flex flex-col items-center gap-2">
