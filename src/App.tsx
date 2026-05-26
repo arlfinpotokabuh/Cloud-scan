@@ -15,6 +15,119 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import CamScanSimulator from './components/CamScanSimulator';
 import { getApiUrl } from './utils';
 
+function BrowserIframe({ 
+  url, 
+  useJsProxy, 
+  injectJs, 
+  userAgent 
+}: { 
+  url: string; 
+  useJsProxy: boolean; 
+  injectJs: string; 
+  userAgent: string; 
+}) {
+  const [htmlContent, setHtmlContent] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!url) return;
+    if (!useJsProxy) {
+      setHtmlContent('');
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchContent = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const proxyUrl = getApiUrl(`/api/browser-proxy?url=${encodeURIComponent(url)}&injectJs=${encodeURIComponent(injectJs)}&userAgent=${encodeURIComponent(userAgent)}`);
+        const res = await fetch(proxyUrl);
+        if (!res.ok) {
+          throw new Error(`Failed to load page: ${res.statusText}`);
+        }
+        const text = await res.text();
+        if (isMounted) {
+          setHtmlContent(text);
+          setLoading(false);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          console.error("BrowserIframe load error:", err);
+          setError(err.message || 'Gagal memuat halaman web');
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchContent();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [url, useJsProxy, injectJs, userAgent]);
+
+  if (!url) {
+    return <div className="flex-1 flex items-center justify-center bg-white text-slate-400">Memuat...</div>;
+  }
+
+  if (!useJsProxy) {
+    return (
+      <iframe 
+        src={url} 
+        className="w-full flex-1 border-none bg-white"
+        title="Web Browser"
+        sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+      />
+    );
+  }
+
+  return (
+    <div className="flex-1 w-full h-full flex flex-col relative">
+      {loading && (
+        <div className="absolute inset-0 bg-white/90 z-40 flex flex-col items-center justify-center gap-3">
+          <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-xs text-slate-500 font-medium font-sans">Menjelajah dengan Aman (Bypass CORS)...</span>
+        </div>
+      )}
+      {error && !loading && (
+        <div className="absolute inset-0 bg-slate-50 z-40 flex flex-col items-center justify-center p-6 text-center gap-3">
+          <span className="text-2xl">⚠️</span>
+          <div className="space-y-1">
+            <h4 className="text-xs font-bold text-slate-800">Situs Web Tidak Tersedia Melalui Proxy</h4>
+            <p className="text-[10px] text-slate-500 max-w-sm leading-relaxed">{error}</p>
+          </div>
+          <button 
+            onClick={() => {
+              setHtmlContent('');
+              setTimeout(() => {
+                const proxyUrl = getApiUrl(`/api/browser-proxy?url=${encodeURIComponent(url)}&injectJs=${encodeURIComponent(injectJs)}&userAgent=${encodeURIComponent(userAgent)}`);
+                setLoading(true);
+                fetch(proxyUrl)
+                  .then(r => r.text())
+                  .then(text => { setHtmlContent(text); setLoading(false); })
+                  .catch(() => { setLoading(false); });
+              }, 50);
+            }} 
+            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-semibold rounded-lg shadow transition-colors"
+          >
+            Muat Ulang Halaman
+          </button>
+        </div>
+      )}
+      <iframe 
+        srcDoc={htmlContent || undefined} 
+        className="w-full flex-1 border-none bg-white"
+        title="Secure Web Browser"
+        sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+      />
+    </div>
+  );
+}
+
 export default function App() {
   const truncateFileName = (name: string, maxLen = 25): string => {
     if (name.length <= maxLen) return name;
@@ -2834,11 +2947,11 @@ export default function App() {
                                 {!tab.activeUrl ? (
                                     <div className="flex-1 flex items-center justify-center bg-white text-slate-400">Loading...</div>
                                 ) : (
-                                    <iframe 
-                                        src={useJsProxy ? getApiUrl(`/api/browser-proxy?url=${encodeURIComponent(tab.activeUrl)}&injectJs=${encodeURIComponent(proxyJsCode)}&userAgent=${encodeURIComponent(proxyUserAgent)}`) : tab.activeUrl} 
-                                        className="w-full flex-1 border-none bg-white"
-                                        title={`Integrated Web Browser - ${tab.id}`}
-                                        sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                                    <BrowserIframe 
+                                        url={tab.activeUrl}
+                                        useJsProxy={useJsProxy}
+                                        injectJs={proxyJsCode}
+                                        userAgent={proxyUserAgent}
                                     />
                                 )}
                             </div>

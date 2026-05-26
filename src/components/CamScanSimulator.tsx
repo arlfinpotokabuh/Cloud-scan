@@ -143,6 +143,7 @@ export default function CamScanSimulator({
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isBackCamera, setIsBackCamera] = useState(true);
   const [isFullScreenCamera, setIsFullScreenCamera] = useState(false);
+  const [cameraError, setCameraError] = useState(false);
 
   // Initialize standard documents (matching user requirement/screenshots)
   useEffect(() => {
@@ -409,6 +410,7 @@ export default function CamScanSimulator({
 
   // Handle Camera Access
   const startCamera = async () => {
+    setCameraError(false);
     try {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
@@ -430,7 +432,8 @@ export default function CamScanSimulator({
         setStream(fallbackStream);
         setToast("Kamera dicanangkan!");
       } catch (failed) {
-        setToast("Gagal mengakses kamera. Silakan pilih alternatif Impor dari Galeri HP.");
+        setCameraError(true);
+        setToast("Gagal mengakses kamera. Silakan pilih alternatif Kamera HP atau Impor dari Galeri.");
       }
     }
   };
@@ -1674,20 +1677,28 @@ export default function CamScanSimulator({
                   {/* Operational Quick Actions (Image 1 & 2 grid buttons) */}
                   <div>
                     <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase font-mono">Alat Utama</span>
-                    <div className="grid grid-cols-4 gap-3 mt-2">
+                    <div className="grid grid-cols-5 gap-2 mt-2">
                       <button 
                         onClick={async () => {
                           setCurrCapturedImage(null);
                           await startCamera();
                           setSubPage('main'); // let UI video play
                         }}
-                        className="flex flex-col items-center gap-1.5 p-2 bg-slate-900 hover:bg-slate-850 rounded-xl transition-all active:scale-95"
+                        className="flex flex-col items-center gap-1.5 p-1.5 bg-slate-900 hover:bg-slate-850 rounded-xl transition-all active:scale-95"
                       >
-                        <div className="w-10 h-10 rounded-full bg-emerald-600/20 text-emerald-450 flex items-center justify-center shadow">
-                          <Camera size={18} />
+                        <div className="w-9 h-9 rounded-full bg-emerald-600/20 text-emerald-450 flex items-center justify-center shadow">
+                          <Plus size={16} />
                         </div>
-                        <span className="text-[10px] font-bold text-slate-300">Scan</span>
+                        <span className="text-[9px] font-bold text-slate-300">Sken Live</span>
                       </button>
+
+                      <label className="flex flex-col items-center gap-1.5 p-1.5 bg-slate-900 hover:bg-slate-850 rounded-xl transition-all cursor-pointer active:scale-95 text-center">
+                        <div className="w-9 h-9 rounded-full bg-indigo-650 text-white flex items-center justify-center shadow animate-pulse">
+                          <Camera size={16} />
+                        </div>
+                        <span className="text-[9px] font-bold text-indigo-400">Kamera HP</span>
+                        <input type="file" accept="image/*" capture="environment" onChange={handleImportFile} className="hidden" />
+                      </label>
 
                       <button 
                         onClick={() => setTabActive('alat')}
@@ -1774,6 +1785,33 @@ export default function CamScanSimulator({
                       </button>
                     </div>
                   </div>
+
+                  {cameraError && (
+                    <div className="bg-slate-950 border border-amber-500/30 rounded-xl p-4 flex flex-col items-center gap-3 text-center mb-3">
+                      <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center animate-bounce shrink-0">
+                        <Camera size={20} />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-bold text-slate-200">Akses Kamera Terkendala</h4>
+                        <p className="text-[10px] text-slate-400 leading-relaxed max-w-sm mx-auto">
+                          Sistem Chrome/Android membatasi akses kamera langsung di webview. Anda tetap dapat memindai berkas dengan kualitas penuh menggunakan kamera utama handphone Anda!
+                        </p>
+                      </div>
+                      <div className="flex gap-2 w-full max-w-xs mt-1">
+                        <label className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-[10px] flex items-center justify-center gap-1.5 cursor-pointer shadow transition-all">
+                          <Camera size={12} />
+                          Potret via Kamera HP
+                          <input type="file" accept="image/*" capture="environment" onChange={(e) => { handleImportFile(e); setCameraError(false); }} className="hidden" />
+                        </label>
+                        <button 
+                          onClick={() => setCameraError(false)} 
+                          className="px-3 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold rounded-lg text-[10px] transition-colors"
+                        >
+                          Tutup
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Camera overlay container, if stream was activated */}
                   {stream && (
