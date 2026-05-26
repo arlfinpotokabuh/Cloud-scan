@@ -1,0 +1,10 @@
+{
+  "name": " Dimension Cloudv2",
+  "description": "Efficient file management for your project.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

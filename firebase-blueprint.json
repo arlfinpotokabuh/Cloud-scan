@@ -1,0 +1,24 @@
+{
+  "entities": {
+    "File": {
+      "title": "File",
+      "description": "Metadata for files stored in the cloud.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The original name of the file." },
+        "storageName": { "type": "string", "description": "The name of the file in storage (usually same as name for this app)." },
+        "uid": { "type": "string", "description": "The ID of the owner user." },
+        "size": { "type": "number", "description": "Size of file in bytes." },
+        "mtime": { "type": "string", "format": "date-time", "description": "Last modified time." },
+        "birthtime": { "type": "string", "format": "date-time", "description": "Created time." }
+      },
+      "required": ["name", "uid", "size"]
+    }
+  },
+  "firestore": {
+    "/files/{fileId}": {
+      "schema": "File",
+      "description": "User files metadata collection."
+    }
+  }
+}

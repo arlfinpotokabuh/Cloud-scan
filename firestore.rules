@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Catch-all deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isVerified() {
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com');
+    }
+
+    function isOwner(uid) {
+      return isVerified() && request.auth.uid == uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 255 && id.matches('^[a-zA-Z0-9_\\-.]+$');
+    }
+
+    function isValidFile(data) {
+      return data.keys().hasAll(['name', 'uid', 'size']) &&
+             data.name is string && data.name.size() <= 512 &&
+             data.uid == request.auth.uid &&
+             data.size is number &&
+             (!('mtime' in data) || data.mtime is string) &&
+             (!('birthtime' in data) || data.birthtime is string);
+    }
+
+    match /files/{fileId} {
+      allow read, list: if isOwner(resource.data.uid);
+      allow create: if isVerified() && isValidFile(request.resource.data);
+      allow update: if isOwner(resource.data.uid) && isValidFile(request.resource.data) &&
+                      request.resource.data.uid == resource.data.uid;
+      allow delete: if isOwner(resource.data.uid);
+    }
+  }
+}
