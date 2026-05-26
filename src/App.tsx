@@ -13,6 +13,7 @@ import logo from './assets/images/dimension_cloud_3d_logo_transparent_1779743683
 import { FileDetail, StorageInfo } from './types';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import CamScanSimulator from './components/CamScanSimulator';
+import { getApiUrl } from './utils';
 
 export default function App() {
   const truncateFileName = (name: string, maxLen = 25): string => {
@@ -69,6 +70,12 @@ export default function App() {
   const [remoteDownloadTotal, setRemoteDownloadTotal] = useState<number>(0);
   const [isFileManagerOpen, setIsFileManagerOpen] = useState(false);
   const [useJsProxy, setUseJsProxy] = useState<boolean>(true);
+  const [customApiServerUrl, setCustomApiServerUrl] = useState(() => localStorage.getItem('custom_api_server_url') || '');
+
+  useEffect(() => {
+    localStorage.setItem('custom_api_server_url', customApiServerUrl);
+  }, [customApiServerUrl]);
+
   const [proxyJsCode, setProxyJsCode] = useState<string>(
     "console.log('[Java Proxy] Custom Script Executing!');\n" +
     "// Contoh: Mengubah warna background halaman\n" +
@@ -78,6 +85,7 @@ export default function App() {
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
   );
   const [isProxySettingsOpen, setIsProxySettingsOpen] = useState<boolean>(false);
+  const [showBrowserTips, setShowBrowserTips] = useState<boolean>(true);
 
   // States for CamScan Document Scanner Tool
   const [isCamScanOpen, setIsCamScanOpen] = useState(false);
@@ -677,7 +685,7 @@ export default function App() {
 
   const fetchLocalFilesOnly = async () => {
     try {
-      const res = await fetch('/api/files');
+      const res = await fetch(getApiUrl('/api/files'));
       if (res.ok) {
         const localFiles = await res.json();
         return localFiles.map((lf: any) => ({
@@ -969,18 +977,18 @@ export default function App() {
   const getFileDownloadUrl = async (filename: string): Promise<string> => {
     const fileItem = files.find(f => f.name === filename);
     if (fileItem?.isLocal) {
-      return `/api/open/${encodeURIComponent(filename)}`;
+      return getApiUrl(`/api/open/${encodeURIComponent(filename)}`);
     }
     if (fileItem?.isCloud && user) {
       try {
         const storageRef = ref(storage, `users/${user.uid}/${filename}`);
         const cloudUrl = await getDownloadURL(storageRef);
-        return `/api/proxy?url=${encodeURIComponent(cloudUrl)}`;
+        return getApiUrl(`/api/proxy?url=${encodeURIComponent(cloudUrl)}`);
       } catch (err) {
         console.warn("Storage download URL failed, falling back to local proxy", err);
       }
     }
-    return `/api/open/${encodeURIComponent(filename)}`;
+    return getApiUrl(`/api/open/${encodeURIComponent(filename)}`);
   };
 
   const getFileCategory = (filename: string): 'image' | 'video' | 'audio' | 'pdf' | 'office' | 'html' | 'text' | 'other' => {
@@ -1010,7 +1018,7 @@ export default function App() {
                 if (category === 'text' || category === 'html') {
                     setIsLoadingText(true);
                     setTextContent(null);
-                    const fetchUrl = url.startsWith('http') ? `/api/proxy?url=${encodeURIComponent(url)}` : url;
+                    const fetchUrl = (url.startsWith('http') && !url.includes('/api/')) ? getApiUrl(`/api/proxy?url=${encodeURIComponent(url)}`) : url;
                     fetch(fetchUrl)
                         .then(r => {
                             if (!r.ok) throw new Error("HTTP error");
@@ -1079,7 +1087,7 @@ export default function App() {
             if (user) {
                 payload.uid = user.uid;
             }
-            const response = await fetch(`/api/save/${encodeURIComponent(selectedFile.name)}`, {
+            const response = await fetch(getApiUrl(`/api/save/${encodeURIComponent(selectedFile.name)}`), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1470,7 +1478,7 @@ export default function App() {
     setToast("Menghubungi AI Gemini untuk mendeteksi koordinat teks...");
     
     try {
-      const res = await fetch("/api/camscan/ocr", {
+      const res = await fetch(getApiUrl("/api/camscan/ocr"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageBase64: processedImage })
@@ -1633,7 +1641,7 @@ export default function App() {
         formData.append("file", file);
         if (user) formData.append("uid", user.uid);
         
-        const uploadRes = await fetch("/api/upload", {
+        const uploadRes = await fetch(getApiUrl("/api/upload"), {
           method: "POST",
           body: formData
         });
@@ -1647,7 +1655,7 @@ export default function App() {
       } else {
         // Save as MS Word Office Docx
         const rawOcrTexts = ocrWords.map(w => ({ text: w.text }));
-        const response = await fetch("/api/camscan/save-docx", {
+        const response = await fetch(getApiUrl("/api/camscan/save-docx"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1664,7 +1672,7 @@ export default function App() {
           
           // Download directly
           const downRes = await response.json();
-          const docxDownloadUrl = `/api/open/${encodeURIComponent(downRes.name)}`;
+          const docxDownloadUrl = getApiUrl(`/api/open/${encodeURIComponent(downRes.name)}`);
           const downLink = document.createElement("a");
           downLink.download = downRes.name;
           downLink.href = docxDownloadUrl;
@@ -1805,7 +1813,7 @@ export default function App() {
            setUploadSpeed(null);
       });
 
-      xhr.open('POST', '/api/upload');
+      xhr.open('POST', getApiUrl('/api/upload'));
       xhr.send(formData);
     };
 
@@ -1838,7 +1846,7 @@ export default function App() {
     }
     
     try {
-        const proxyUrl = `/api/proxy?url=${encodeURIComponent(currentUrl)}`;
+        const proxyUrl = getApiUrl(`/api/proxy?url=${encodeURIComponent(currentUrl)}`);
         const res = await fetch(proxyUrl);
         if (!res.ok) throw new Error('Failed to download from URL');
         
@@ -1941,8 +1949,8 @@ export default function App() {
     
     try {
         let url = await getFileDownloadUrl(filename);
-        if (url.startsWith('http')) {
-            url = `/api/proxy?url=${encodeURIComponent(url)}`;
+        if (url.startsWith('http') && !url.includes('/api/')) {
+            url = getApiUrl(`/api/proxy?url=${encodeURIComponent(url)}`);
         }
         const response = await fetch(url);
         if (!response.ok) throw new Error('Download failed');
@@ -2002,7 +2010,7 @@ export default function App() {
         if (!fileDetail) throw new Error("File not found");
 
         try {
-            await fetch('/api/rename', {
+            await fetch(getApiUrl('/api/rename'), {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ oldName: renameTarget, newName: renameInput, uid: user?.uid || null })
@@ -2039,7 +2047,7 @@ export default function App() {
               const fileDetail = files.find(f => f.name === name);
 
               try {
-                  const url = user ? `/api/delete/${encodeURIComponent(name)}?uid=${user.uid}` : `/api/delete/${encodeURIComponent(name)}`;
+                  const url = user ? getApiUrl(`/api/delete/${encodeURIComponent(name)}?uid=${user.uid}`) : getApiUrl(`/api/delete/${encodeURIComponent(name)}`);
                   await fetch(url, { method: 'DELETE' });
               } catch (err) {
                   console.warn("Local API delete failed/skipped:", err);
@@ -2524,20 +2532,36 @@ export default function App() {
                                 </div>
                                 
                                 <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                    <button 
-                                        onClick={async () => {
-                                            try {
-                                                const url = await getFileDownloadUrl(file.name);
-                                                window.open(url, '_blank');
-                                            } catch (e) {
-                                                setToast("Failed to open file");
-                                            }
-                                        }} 
-                                        className="p-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 text-xs font-semibold pb-1.5 transition-colors" 
-                                        title="View/Play"
-                                    >
-                                        Open
-                                    </button>
+                                    {file.isLocal ? (
+                                        <a 
+                                            href={getApiUrl(`/api/open/${encodeURIComponent(file.name)}`)} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            className="p-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 text-xs font-semibold pb-1.5 transition-colors flex items-center justify-center" 
+                                            title="View/Play"
+                                        >
+                                            Open
+                                        </a>
+                                    ) : (
+                                        <button 
+                                            onClick={async () => {
+                                                try {
+                                                    const url = await getFileDownloadUrl(file.name);
+                                                    const link = document.createElement('a');
+                                                    link.href = url;
+                                                    link.target = '_blank';
+                                                    link.rel = 'noopener noreferrer';
+                                                    link.click();
+                                                } catch (e) {
+                                                    setToast("Failed to open file");
+                                                }
+                                            }} 
+                                            className="p-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 text-xs font-semibold pb-1.5 transition-colors" 
+                                            title="View/Play"
+                                        >
+                                            Open
+                                        </button>
+                                    )}
                                     <button onClick={() => handleDownload(file.name)} className="p-2 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-colors" title="Download">
                                         {downloadProgresses[file.name] !== undefined ? <span className='text-xs text-blue-900 font-bold'>{downloadProgresses[file.name].toFixed(0)}%</span> : <Download size={18} />}
                                     </button>
@@ -2723,9 +2747,15 @@ export default function App() {
                                 <button onClick={reloadBrowser} className="p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors" title="Reload">
                                     <RotateCw size={18} />
                                 </button>
-                                <button onClick={() => window.open(activeTab.activeUrl, '_blank')} className="p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors" title="Open in New Tab">
+                                <a 
+                                    href={activeTab.activeUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors flex items-center justify-center p-2" 
+                                    title="Buka di Browser Sistem (Bypass Iframe)"
+                                >
                                     <ExternalLink size={18} />
-                                </button>
+                                </a>
                                 <button onClick={handleBrowserHome} className="p-2 hover:bg-slate-100 rounded-full text-slate-600 transition-colors" title="Home">
                                     <Home size={18} />
                                 </button>
@@ -2785,6 +2815,18 @@ export default function App() {
                             </button>
                         ))}
                     </div>
+                    {/* Android APK Browser Tips */}
+                    {showBrowserTips && (
+                        <div className="bg-indigo-50 border-b border-indigo-100 px-4 py-2.5 flex items-start gap-2.5 justify-between animate-in fade-in slide-in-from-top-1 duration-250">
+                            <span className="text-sm shrink-0">💡</span>
+                            <div className="flex-1 text-xs text-indigo-900 leading-relaxed">
+                                <span className="font-bold">Android APK Tips:</span> Beberapa situs besar seperti Google dan Wikipedia melarang pemuatan dalam Iframe demi perlindungan CORS. Jika layar tampak kosong atau memuat ulang halaman dasbor, silakan klik tombol eksternal <strong>↗️</strong> di panel navigasi atas untuk membuka tautan tersebut secara langsung menggunakan browser bawaan ponsel Anda Google Chrome / browser default.
+                            </div>
+                            <button onClick={() => setShowBrowserTips(false)} className="text-indigo-400 hover:text-indigo-700 p-0.5 rounded-full transition-colors shrink-0">
+                                <X size={14} />
+                            </button>
+                        </div>
+                    )}
                     {/* Tab Contents */}
                     <div className="flex-1 w-full relative bg-white flex flex-col">
                         {browserTabs.map(tab => (
@@ -2793,7 +2835,7 @@ export default function App() {
                                     <div className="flex-1 flex items-center justify-center bg-white text-slate-400">Loading...</div>
                                 ) : (
                                     <iframe 
-                                        src={useJsProxy ? `/api/browser-proxy?url=${encodeURIComponent(tab.activeUrl)}&injectJs=${encodeURIComponent(proxyJsCode)}&userAgent=${encodeURIComponent(proxyUserAgent)}` : tab.activeUrl} 
+                                        src={useJsProxy ? getApiUrl(`/api/browser-proxy?url=${encodeURIComponent(tab.activeUrl)}&injectJs=${encodeURIComponent(proxyJsCode)}&userAgent=${encodeURIComponent(proxyUserAgent)}`) : tab.activeUrl} 
                                         className="w-full flex-1 border-none bg-white"
                                         title={`Integrated Web Browser - ${tab.id}`}
                                         sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
@@ -2897,7 +2939,7 @@ export default function App() {
                     <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-4 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Terminal size={20} />
-                            <h3 className="text-lg font-bold">Java & JS Script Proxy Settings</h3>
+                            <h3 className="text-lg font-bold">Terminal, Proxy & API Server Settings</h3>
                         </div>
                         <button onClick={() => setIsProxySettingsOpen(false)} className="p-1 hover:bg-white/20 rounded-full transition-colors text-white">
                             <X size={18} />
@@ -2906,6 +2948,20 @@ export default function App() {
 
                     {/* Content */}
                     <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                        {/* API Server URL Configuration */}
+                        <div className="space-y-2 pb-4 border-b border-rose-100">
+                            <div>
+                                <h4 className="text-sm font-semibold text-slate-800">API Server URL (Android APK / Mode Guest)</h4>
+                                <p className="text-xs text-slate-500 mt-0.5">Membantu sinkronisasi berkas pada mode guest di Android APK. Lewati opsi ini untuk menggunakan pendeteksian otomatis.</p>
+                            </div>
+                            <input 
+                                type="text"
+                                value={customApiServerUrl}
+                                onChange={(e) => setCustomApiServerUrl(e.target.value)}
+                                className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none focus:bg-white text-slate-800 font-mono"
+                                placeholder="Contoh: https://ais-pre-giowxyd3cmhxrqfffqj4ki-915540977151.asia-southeast1.run.app"
+                            />
+                        </div>
                         <p className="text-xs text-slate-500 leading-relaxed">
                             Proxy JavaScript / Java Proxy memungkinkan pemuatan situs eksternal yang dibatasi (seperti CORS/Frame Ancestors) ke dalam Iframe terintegrasi dengan memotong header perlindungan dan menyuntikkan script dinamis secara real-time.
                         </p>
@@ -3193,18 +3249,18 @@ export function FilePreviewIcon({ file, user, className, iconSize = 24 }: FilePr
     if (!isImage) return;
 
     if (file.isLocal) {
-      setImgUrl(`/api/open/${encodeURIComponent(file.name)}`);
+      setImgUrl(getApiUrl(`/api/open/${encodeURIComponent(file.name)}`));
     } else if (file.isCloud && user) {
       const storageRef = ref(storage, `users/${user.uid}/${file.name}`);
       getDownloadURL(storageRef)
         .then((url) => {
-          setImgUrl(`/api/proxy?url=${encodeURIComponent(url)}`);
+          setImgUrl(getApiUrl(`/api/proxy?url=${encodeURIComponent(url)}`));
         })
         .catch(() => {
-          setImgUrl(`/api/open/${encodeURIComponent(file.name)}`);
+          setImgUrl(getApiUrl(`/api/open/${encodeURIComponent(file.name)}`));
         });
     } else {
-      setImgUrl(`/api/open/${encodeURIComponent(file.name)}`);
+      setImgUrl(getApiUrl(`/api/open/${encodeURIComponent(file.name)}`));
     }
   }, [file.name, file.isLocal, file.isCloud, user, isImage]);
 

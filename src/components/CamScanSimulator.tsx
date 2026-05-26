@@ -8,6 +8,7 @@ import {
 
 import { doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { getApiUrl } from '../utils';
 
 interface CamScanSimulatorProps {
   isOpen: boolean;
@@ -528,7 +529,7 @@ export default function CamScanSimulator({
     setToast(`Memuat ${fileName} dari Cloud...`);
     
     try {
-      const response = await fetch(`/api/open/${encodeURIComponent(fileName)}`);
+      const response = await fetch(getApiUrl(`/api/open/${encodeURIComponent(fileName)}`));
       if (!response.ok) throw new Error("Gagal mengunduh file cloud");
       
       const blob = await response.blob();
@@ -609,7 +610,7 @@ export default function CamScanSimulator({
     setLoading(true);
     setToast(`Mengubah nama ${oldName}...`);
     try {
-      const response = await fetch('/api/rename', {
+      const response = await fetch(getApiUrl('/api/rename'), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ oldName, newName: finalName, uid: user?.uid })
@@ -639,7 +640,7 @@ export default function CamScanSimulator({
     setToast(`Menghapus ${fileName}...`);
     try {
       // 1. Delete from Server
-      const url = `/api/delete/${encodeURIComponent(fileName)}` + (user?.uid ? `?uid=${user.uid}` : '');
+      const url = getApiUrl(`/api/delete/${encodeURIComponent(fileName)}` + (user?.uid ? `?uid=${user.uid}` : ''));
       const response = await fetch(url, {
         method: 'DELETE'
       });
@@ -674,7 +675,7 @@ export default function CamScanSimulator({
     setToast(`Mengekspor ${fileName}...`);
     try {
       // 1. Fetch the file blob first
-      const res = await fetch(`/api/open/${encodeURIComponent(fileName)}`);
+      const res = await fetch(getApiUrl(`/api/open/${encodeURIComponent(fileName)}`));
       if (!res.ok) throw new Error("Gagal mengambil file");
       const blob = await res.blob();
       
@@ -684,7 +685,7 @@ export default function CamScanSimulator({
         const base64 = reader.result as string;
         // 3. Trigger conversion to docx
         const timestamp = Date.now();
-        const response = await fetch("/api/camscan/save-docx", {
+        const response = await fetch(getApiUrl("/api/camscan/save-docx"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -697,7 +698,7 @@ export default function CamScanSimulator({
 
         if (response.ok) {
           const data = await response.json();
-          window.location.href = `/api/open/${encodeURIComponent(data.name)}`;
+          window.location.href = getApiUrl(`/api/open/${encodeURIComponent(data.name)}`);
           setToast("File Word berhasil diunduh.");
         } else {
           throw new Error("Gagal konversi docx");
@@ -1188,7 +1189,7 @@ export default function CamScanSimulator({
       const filename = `Scan_Cloud_${timestamp}.png`;
       
       setProgress(50);
-      const response = await fetch("/api/camscan/save-cloud", {
+      const response = await fetch(getApiUrl("/api/camscan/save-cloud"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1247,7 +1248,7 @@ export default function CamScanSimulator({
       setProgress(30);
       const ocrBlocks = currWords.length > 0 ? currWords.map(w => ({ text: w.text })) : [{ text: 'Dokumen Kosong' }];
       
-      const response = await fetch("/api/camscan/save-docx", {
+      const response = await fetch(getApiUrl("/api/camscan/save-docx"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1264,7 +1265,7 @@ export default function CamScanSimulator({
         fetchFiles();
 
         const data = await response.json();
-        const urlLink = `/api/open/${encodeURIComponent(data.name)}`;
+        const urlLink = getApiUrl(`/api/open/${encodeURIComponent(data.name)}`);
         const downloader = document.createElement('a');
         downloader.download = data.name;
         downloader.href = urlLink;
@@ -1290,7 +1291,7 @@ export default function CamScanSimulator({
     
     try {
       setProgress(20);
-      const res = await fetch("/api/camscan/ocr", {
+      const res = await fetch(getApiUrl("/api/camscan/ocr"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageBase64: currProcessedImage })
@@ -1553,15 +1554,15 @@ export default function CamScanSimulator({
                     className="w-full bg-slate-900/60 p-3 rounded-xl border border-slate-900 flex items-center gap-3 hover:border-indigo-500/50 hover:bg-slate-900 transition-all text-left group cursor-pointer select-none"
                   >
                     <div className="w-10 h-10 bg-slate-800 rounded flex items-center justify-center overflow-hidden border border-slate-700">
-                      <img src={`/api/open/${encodeURIComponent(file.name)}`} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                      <img src={getApiUrl(`/api/open/${encodeURIComponent(file.name)}`)} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <span className="text-xs font-bold text-slate-200 block truncate group-hover:text-indigo-400">{file.name}</span>
-                      <span className="text-[9px] text-slate-500 font-mono mt-0.5 uppercase">GAMBAR CLOUD</span>
+                      <span className="text-[9px] text-slate-500 font-mono mt-0.5 uppercase">GAMBAR CLUID</span>
                     </div>
                     <div className="flex items-center gap-0.5">
                       <button 
-                        onClick={(e) => { e.stopPropagation(); setSubPage('edit'); setCurrCapturedImage(`/api/open/${encodeURIComponent(file.name)}`); }}
+                        onClick={(e) => { e.stopPropagation(); setSubPage('edit'); setCurrCapturedImage(getApiUrl(`/api/open/${encodeURIComponent(file.name)}`)); }}
                         className="p-1.5 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors"
                         title="Edit"
                       >
